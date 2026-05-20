@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Almanac — A Habit Tracker</title>
+<meta name="description" content="A quiet ledger of daily practices.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F2EDDF">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Almanac">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
@@ -115,6 +123,15 @@ body::after {
   cursor: pointer; border-radius: 2px; transition: all 0.15s ease;
 }
 .icon-btn:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.icon-btn.install-btn {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.icon-btn.install-btn:hover {
+  background: var(--gold);
+  color: var(--paper-3);
+  border-color: var(--gold);
+}
 
 /* Views */
 .view { display: none; animation: fadeIn 0.3s ease; }
@@ -904,6 +921,7 @@ body::after {
       <button class="tab" data-view="archive">Archive<span class="count" id="archiveCount">0</span></button>
     </div>
     <div class="tab-actions">
+      <button class="icon-btn install-btn" id="installBtn" style="display:none" title="Install as a desktop app">Install</button>
       <button class="icon-btn" id="exportBtn" title="Export your data">Export</button>
       <button class="icon-btn" id="importBtn" title="Import data">Import</button>
       <input type="file" id="importFile" accept=".json" style="display:none">
@@ -2634,6 +2652,54 @@ document.getElementById('todayDate').textContent =
 const dateArchived = checkDateGoalsOnLoad();
 if (dateArchived) toast('Some habits passed their end date and were archived');
 renderToday();
+
+// ════════════════════════════════════════════════════════════
+//  PWA — installable desktop app + offline support
+// ════════════════════════════════════════════════════════════
+let deferredInstallPrompt = null;
+
+// Hide install button if already running as installed app
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!isStandalone()) {
+    document.getElementById('installBtn').style.display = 'inline-flex';
+  }
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) {
+    // Fallback message for browsers without beforeinstallprompt (e.g. Safari)
+    toast('Use your browser\'s "Add to Home Screen" or "Install" menu');
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') {
+    document.getElementById('installBtn').style.display = 'none';
+  }
+  deferredInstallPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').style.display = 'none';
+  deferredInstallPrompt = null;
+  toast('Installed — look for The Almanac in your dock', true);
+});
+
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
 </script>
 </body>
 </html>
